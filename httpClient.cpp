@@ -30,7 +30,7 @@ int main()
               << std::endl;
 
     // Create the socket
-    // Referenced: Dr. Mishra's tcpClient3.c file, as well as https://www.geeksforgeeks.org/how-to-read-from-a-file-in-cpp/
+    // Referenced: Dr. Mishra's tcpClient3.c file, as well as https://www.geeksforgeeks.org/socket-programming-in-cpp/
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 
     // check if server socket was made correctly
@@ -55,10 +55,10 @@ int main()
         exit(1);
     }
 
-    std::string clientMsg = "Client connected..."; 
+    std::string clientMsg = ""; 
 
     send(clientSocket, clientMsg.c_str(), clientMsg.size(), 0);
-
+    sleep(5);
     // connection loop with server
     // while (1)
     // {
@@ -68,8 +68,8 @@ int main()
     // close the server socket
     close(clientSocket);
 
-    std::cout << "Client socket closed." << std::endl
-              << std::endl;
+    // std::cout << "Client socket closed." << std::endl
+    //           << std::endl;
 
     return 0;
 }

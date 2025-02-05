@@ -18,7 +18,6 @@
 #define BUFFER_SIZE 1024
 
 std::string readFile(const std::string &fileName);
-std::string readMessage(const std::string buffer);
 
 int main()
 {
@@ -52,6 +51,8 @@ int main()
         perror("Bind failed.");
         close(servSocket);
         exit(1);
+    }else{
+        std::cout << "Server address: " << servSocket << std:: endl;
     }
 
     // listen for simultaneous connections
@@ -94,6 +95,8 @@ int main()
         std::string method, path, line;
         httpReqStream >> method >> path;
 
+        std::cout << "Request Method: " << method << std::endl;
+        std::cout << "Request Path: " << path << std::endl << std::endl;
 
         // check method type
         if (method == "POST")
@@ -125,6 +128,7 @@ int main()
                           << fileContent;
                 std::string httpRes = resStream.str();
                 send(clientSocket, httpRes.c_str(), httpRes.size(), 0);
+                std::cout << "Server response: " << httpRes << std::endl;
         }
         else if (!path.empty() && path != "")
         {
@@ -152,17 +156,19 @@ int main()
                           << fileContent;
                 std::string httpRes = resStream.str();
                 send(clientSocket, httpRes.c_str(), httpRes.size(), 0);
+                std::cout << "Server response: " << httpRes << std::endl;
             }
             else // file path choosen is not valid, send "404 not found"
             {
                 const std::string notFoundHttpRes = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\nContent-Length: 51\r\n\r\n<html>404 Not Found</html>";
                 send(clientSocket, notFoundHttpRes.c_str(), notFoundHttpRes.size(), 0);
+                std::cout << "Server response: " << notFoundHttpRes << std::endl;
             }
         }
 
         // Close the client socket
         close(clientSocket);
-
+        std::cout << "Client socket closed on server side." << std::endl << std::endl;
     }
 
     // close the server socket
@@ -180,6 +186,7 @@ std::string readFile(const std::string &fileName)
 
     if (!file.is_open())
     {
+        std::cerr << "File: " << fileName << " failed to open." << std::endl;
         return "";
     }
 
