@@ -18,7 +18,7 @@ This will generate an executable named httpServer.
 2. Running the Program
 After compilation, run the server program using the following command:
 
-./httpServer
+make run
 
 By default, the server will listen on port 60001. You can access the server by opening a web browser and entering:
 
