@@ -14,10 +14,17 @@
 #include <sys/socket.h> //API and definitions for the sockets
 #include <netinet/in.h> //Structures to store address information
 #include <unistd.h>     // For read, close
+#include <thread> //https://en.cppreference.com/w/cpp/thread/thread
+#include <atomic>
+#include <algorithm> // For transforming input to lowercase
+#include <cctype>
+
 
 #define BUFFER_SIZE 1024
 
+std::atomic<bool> serverClosed(false); // https://en.cppreference.com/w/cpp/atomic/atomic
 std::string readFile(const std::string &fileName);
+void exitServer();
 
 int main()
 {
@@ -38,8 +45,12 @@ int main()
         exit(1);
     }
 
+    // Opens ports for reuse immediately after shutdown
+    int opt = 1;
+    setsockopt(servSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); //https://www.ibm.com/docs/en/zos/2.4.0?topic=calls-setsockopt
+
     // define the server address
-    sockaddr_in servAddress;                  // declaring a structure for the address
+    sockaddr_in servAddress{};                  // declaring a structure for the address
     servAddress.sin_family = AF_INET;         // Structure Fields' definition: Sets the address family of the address the client would connect to
     servAddress.sin_port = htons(portNum);    // Passing the port number - converting in right network byte order
     servAddress.sin_addr.s_addr = INADDR_ANY; // Connecting to 0.0.0.0
@@ -66,11 +77,20 @@ int main()
 
     std::cout << "Server listening on port " << portNum << "..." << std::endl
               << std::endl;
+    
+    //Open thread
+    std::thread t(exitServer);
 
     // accept client connections
-    while (1)
+    while (!serverClosed)
     {
         int clientSocket = accept(servSocket, nullptr, nullptr); // server socket to interact with client, structure like before - if you know - else nullptr for local connection
+
+        if(serverClosed)
+        {
+            close(clientSocket);
+            break;
+        }
 
         if (clientSocket < 0)
         {
@@ -117,6 +137,12 @@ int main()
             // remvove "message="
             message.erase(0, 8);
             std::cout << "Message from client: " << message << std::endl;
+
+            if(message == "stop")
+            {
+                serverClosed = true;
+                std::cout << "Received 'stop' command from client. Server shutting down." << std::endl;
+            }
 
             //redirect them back to the main screen
             path = "index.html";
@@ -170,14 +196,18 @@ int main()
         close(clientSocket);
         std::cout << "Client socket closed on server side." << std::endl << std::endl;
     }
-
+    
     // close the server socket
     close(servSocket);
+    
+    serverClosed = true;
 
-    std::cout << "Server closed." << std::endl
-              << std::endl;
+    //close thread
+    t.join();
 
-    return 0;
+    std::cout << "Server closed." << std::endl << std::endl;
+
+    exit(0);  // Explicitly terminate program
 }
 
 std::string readFile(const std::string &fileName)
@@ -201,3 +231,28 @@ std::string readFile(const std::string &fileName)
     return fileContentStream.str();
 }
 
+void exitServer()
+{
+    const std::string exitCommand = "stop";
+    std::string cliInput = "";
+
+    while(!serverClosed){
+        if(!std::cin)
+        {
+            serverClosed = true;
+            return;
+        }
+        
+        std::getline(std::cin, cliInput);
+
+        if(!cliInput.empty() && cliInput != "")
+        {
+            std::transform(cliInput.begin(), cliInput.end(), cliInput.begin(), ::tolower);
+
+            if(cliInput == exitCommand)
+            {
+                serverClosed = true;
+            }
+        }
+    }
+}
