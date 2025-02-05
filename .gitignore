@@ -1,0 +1,52 @@
+# VS Code settings
+.vscode/
+*.code-workspace
+
+# Build artifacts
+*.exe
+*.out
+*.o
+*.obj
+*.dll
+*.so
+*.a
+*.lib
+
+# Compiled intermediate files
+*.i
+*.ii
+*.s
+*.swp
+
+# Debugging files
+*.dSYM/
+*.pdb
+*.ilk
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+CMakeLists.txt.user
+
+# Makefiles
+Makefile
+Makefile.in
+autotools/
+autom4te.cache/
+config.log
+config.status
+
+# Build directories
+/build/
+/bin/
+/dist/
+
+# Logs
+*.log
+*.tmp
+
+# User-specific files
+*.swp
+*~
