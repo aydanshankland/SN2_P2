@@ -18,14 +18,21 @@ This will generate an executable named httpServer.
 2. Running the Program
 After compilation, run the server program using the following command:
 
-make run
+make server
+
+After the server is started and in a separate terminal, run the client program using the following command:
+
+make client
 
 By default, the server will listen on port 60001. You can access the server by opening a web browser and entering:
 
 http://localhost:60001
 
-3. Exit the Program
-To stop the server, use Ctrl+C in the terminal. The server will close any open sockets. 
+3. Exit the client
+To stop the client, enter 'exit' and press enter.
+
+4. Close the server
+To stop the server, enter 'stop' in the server terminal, or in the text field of the browser. The server will close any open sockets. 
 
 ## Cleaning Up
 To remove the compiled files, run: 'make clean'

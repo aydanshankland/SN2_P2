@@ -17,17 +17,13 @@
 
 #define BUFFER_SIZE 1024
 
-std::string readFile(const std::string &fileName);
-std::string readMessage(const std::string buffer);
-void sendMsg(int clientMsg);
 
 int main()
 {
     const int portNum = 60001;
     char buffer[BUFFER_SIZE] = {0};
 
-    std::cout << "Client starting." << std::endl
-              << std::endl;
+    std::cout << "Client starting." << std::endl << std::endl;
 
     // Create the socket
     // Referenced: Dr. Mishra's tcpClient3.c file, as well as https://www.geeksforgeeks.org/socket-programming-in-cpp/
@@ -41,7 +37,7 @@ int main()
     }
 
     // define the server address
-    sockaddr_in servAddress;                  // declaring a structure for the address
+    sockaddr_in servAddress{};                  // declaring a structure for the address
     servAddress.sin_family = AF_INET;         // Structure Fields' definition: Sets the address family of the address the client would connect to
     servAddress.sin_port = htons(portNum);    // Passing the port number - converting in right network byte order
     servAddress.sin_addr.s_addr = INADDR_ANY; // Connecting to 0.0.0.0
@@ -55,34 +51,61 @@ int main()
         exit(1);
     }
 
-    std::string clientMsg = ""; 
+    std::cout << "Client connected to server." << std::endl;
 
-    send(clientSocket, clientMsg.c_str(), clientMsg.size(), 0);
-    sleep(5);
+    std::string fileName = "";
     // connection loop with server
-    // while (1)
-    // {
-    //     sendMsg(clientSocket);
-    // }
+    while (true)
+    {
+        std::cout << "Please enter the file name or 'exit' to quit." << std::endl;
+        std::getline(std::cin, fileName);
+
+        if(fileName == "exit")
+        {
+            break;
+        }
+
+        std::ostringstream reqStream;
+            reqStream << "GET /" << fileName << "HTTP/1.1\r\n"
+                        << "host: localhost\r\n"
+                        << "Connection: close\r\n"
+                        << "\r\n";
+                          
+        std::string httpReq = reqStream.str();
+
+        send(clientSocket, httpReq.c_str(), httpReq.size(), 0);
+
+        // std::string clientMsg = "message=Client+Started"; 
+        // std::string httpReq = 
+        //     "POST / HTTP/1.1\r\n"
+        //     "host: localhost\r\n"
+        //     "Content-Type: application/x-www-form-urlencoded\r\n"
+        //     "Content-Length: " +
+        //     std::to_string(clientMsg.length()) + "\r\n\r\n" + 
+        //     clientMsg;
+
+        // send(clientSocket, httpReq.c_str(), httpReq.size(), 0);
+
+        // Receive the HTTP response from server
+        int bytesRecvd = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+
+        if (bytesRecvd < 0)
+        {
+            perror("Read from server failed");
+            break;
+        }
+
+        buffer[bytesRecvd] = '\0';
+        
+    }
 
     // close the server socket
     close(clientSocket);
 
-    // std::cout << "Client socket closed." << std::endl
-    //           << std::endl;
+    std::cout << "Client side socket closed." << std::endl
+              << std::endl;
 
     return 0;
 }
 
-
-void sendMsg(int socket){
-    std::string message;
-    std::cout << "Enter message to send: ";
-    std::getline(std::cin, message);
-
-    send(socket, message.c_str(), message.size(), 0);
-
-    char buffer[BUFFER_SIZE] = {0};
-
-}
 

@@ -1,4 +1,5 @@
-CFLAGS = -g -Wall
+CFLAGS = -g -Wall -pthread
+LDFLAGS = -pthread
 CC = g++
 
 all: httpServer httpClient
@@ -15,10 +16,15 @@ httpServer.o: httpServer.cpp
 httpClient.o: httpClient.cpp
 	$(CC) $(CFLAGS) -c httpClient.cpp
 
-.PHONY: clean run
+.PHONY: clean run_server run_client
 
 clean:
 	rm -f httpServer httpClient httpServer.o httpClient.o
 
-run: all
-	./httpServer & sleep 1 && ./httpClient
+# Start the server separately
+server: httpServer
+	./httpServer
+
+# Start the client separately
+client: httpClient
+	./httpClient
