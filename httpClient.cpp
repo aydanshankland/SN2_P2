@@ -14,74 +14,86 @@
 #include <sys/socket.h> //API and definitions for the sockets
 #include <netinet/in.h> //Structures to store address information
 #include <unistd.h>     // For read, close
+#include <arpa/inet.h>   // For inet_pton()
 
 #define BUFFER_SIZE 1024
-
 
 int main()
 {
     const int portNum = 60001;
     char buffer[BUFFER_SIZE] = {0};
 
-    std::cout << "Client starting." << std::endl << std::endl;
-
-    // Create the socket
-    // Referenced: Dr. Mishra's tcpClient3.c file, as well as https://www.geeksforgeeks.org/socket-programming-in-cpp/
-    int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-
-    // check if server socket was made correctly
-    if (clientSocket == -1)
-    {
-        perror("Client failed to create a socket.");
-        exit(1);
-    }
-
-    // define the server address
-    sockaddr_in servAddress{};                  // declaring a structure for the address
-    servAddress.sin_family = AF_INET;         // Structure Fields' definition: Sets the address family of the address the client would connect to
-    servAddress.sin_port = htons(portNum);    // Passing the port number - converting in right network byte order
-    servAddress.sin_addr.s_addr = INADDR_ANY; // Connecting to 0.0.0.0
-
-    // connecting the socket to the IP address and port
-    // Params: which socket, cast for server address, its size
-    if (connect(clientSocket, (struct sockaddr *)&servAddress, sizeof(servAddress)) == -1)
-    {
-        perror("Connection failed.");
-        close(clientSocket);
-        exit(1);
-    }
-
-    std::cout << "Client connected to server." << std::endl;
+    std::cout << "Client starting." << std::endl
+              << std::endl;
 
     std::string fileName = "";
     // connection loop with server
     while (true)
     {
-        std::cout << "Please enter the file name or 'exit' to quit." << std::endl;
-        std::getline(std::cin, fileName);
+        std::string inputLine, serverAddress;
+        std::cout << "Please enter the server address and file name or 'exit' to quit." << std::endl;
+        std::cout << "Example: \n" << "127.0.0.1 index.html\n\n";
+        std::getline(std::cin, inputLine);
 
-        if(fileName == "exit")
-        {
+        if(inputLine == "exit") {
             break;
         }
 
+        std::istringstream iss(inputLine);  // Split the input
+        iss >> serverAddress;               // First word = server address
+        std::getline(iss, fileName);        // Rest = file name
+
+
+        // Create the socket
+        // Referenced: Dr. Mishra's tcpClient3.c file, as well as https://www.geeksforgeeks.org/socket-programming-in-cpp/
+        int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+        // check if server socket was made correctly
+        if (clientSocket == -1)
+        {
+            perror("Client failed to create a socket.");
+            continue;
+        }
+
+        // define the server address
+        sockaddr_in servAddress{};             // declaring a structure for the address
+        servAddress.sin_family = AF_INET;      // Structure Fields' definition: Sets the address family of the address the client would connect to
+        servAddress.sin_port = htons(portNum); // Passing the port number - converting in right network byte order
+
+        // Convert the user-inputted IP address from string to binary
+        if (inet_pton(AF_INET, serverAddress.c_str(), &servAddress.sin_addr) <= 0)
+        {
+            perror("Invalid address/Address not supported.");
+            close(clientSocket);
+            continue; // Skip and allow the user to enter another request
+        }
+
+        // connecting the socket to the IP address and port
+        // Params: which socket, cast for server address, its size
+        if (connect(clientSocket, (struct sockaddr *)&servAddress, sizeof(servAddress)) == -1)
+        {
+            perror("Connection failed.");
+            close(clientSocket);
+            continue;
+        }
+
         std::ostringstream reqStream;
-            reqStream << "GET /" << fileName << "HTTP/1.1\r\n"
-                        << "host: localhost\r\n"
-                        << "Connection: close\r\n"
-                        << "\r\n";
-                          
+        reqStream << "GET /" << fileName << " HTTP/1.1\r\n"
+                  << "host: localhost\r\n"
+                  << "Connection: close\r\n"
+                  << "\r\n";
+
         std::string httpReq = reqStream.str();
 
         send(clientSocket, httpReq.c_str(), httpReq.size(), 0);
 
-        // std::string clientMsg = "message=Client+Started"; 
-        // std::string httpReq = 
+        // std::string clientMsg = "message=Client+Started";
+        // std::string httpReq =
         //     "POST / HTTP/1.1\r\n"
         //     "host: localhost\r\n"
         //     "Content-Type: application/x-www-form-urlencoded\r\n"
         //     "Content-Length: " +
-        //     std::to_string(clientMsg.length()) + "\r\n\r\n" + 
+        //     std::to_string(clientMsg.length()) + "\r\n\r\n" +
         //     clientMsg;
 
         // send(clientSocket, httpReq.c_str(), httpReq.size(), 0);
@@ -96,16 +108,14 @@ int main()
         }
 
         buffer[bytesRecvd] = '\0';
-        
+
+        std::cout << buffer << std::endl;
+
+        // close the server socket
+        close(clientSocket);
     }
 
-    // close the server socket
-    close(clientSocket);
-
-    std::cout << "Client side socket closed." << std::endl
-              << std::endl;
+    std::cout << "Shutting down client. \n";
 
     return 0;
 }
-
-
