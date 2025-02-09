@@ -182,7 +182,7 @@ int main()
                           << fileContent;
                 std::string httpRes = resStream.str();
                 send(clientSocket, httpRes.c_str(), httpRes.size(), 0);
-                std::cout << "Server response: " << httpRes << std::endl;
+               // std::cout << "Server response: " << httpRes << std::endl;
             }
             else // file path choosen is not valid, send "404 not found"
             {

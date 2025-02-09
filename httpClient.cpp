@@ -42,6 +42,7 @@ int main()
         std::istringstream iss(inputLine);  // Split the input
         iss >> serverAddress;               // First word = server address
         std::getline(iss, fileName);        // Rest = file name
+        fileName.erase(0,1);                // remove the space from the front of the file name
 
 
         // Create the socket
@@ -63,7 +64,7 @@ int main()
         // Convert the user-inputted IP address from string to binary
         if (inet_pton(AF_INET, serverAddress.c_str(), &servAddress.sin_addr) <= 0)
         {
-            perror("Invalid address/Address not supported.");
+            std::cout << "Invalid address/Address not supported.\n\n";
             close(clientSocket);
             continue; // Skip and allow the user to enter another request
         }
@@ -72,18 +73,20 @@ int main()
         // Params: which socket, cast for server address, its size
         if (connect(clientSocket, (struct sockaddr *)&servAddress, sizeof(servAddress)) == -1)
         {
-            perror("Connection failed.");
+            std::cout << "Server did not respond...\n\n"; 
             close(clientSocket);
             continue;
         }
 
         std::ostringstream reqStream;
+
         reqStream << "GET /" << fileName << " HTTP/1.1\r\n"
                   << "host: localhost\r\n"
                   << "Connection: close\r\n"
                   << "\r\n";
 
         std::string httpReq = reqStream.str();
+
 
         send(clientSocket, httpReq.c_str(), httpReq.size(), 0);
 
