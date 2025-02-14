@@ -100,11 +100,31 @@ int main()
             continue; // Skip and allow the user to enter another request
         }
 
+        // Needs a timeout, otherwise the client will hang indefinitely when a valid yet unfindable IP is entered. 
+        // ref1: https://man.freebsd.org/cgi/man.cgi?query=setsockopt&sektion=2
+        // ref2: https://stackoverflow.com/questions/4181784/how-to-set-socket-timeout-in-c-when-making-multiple-connections
+        struct timeval timeout;
+        timeout.tv_sec = 2;
+        timeout.tv_usec = 0;
+
+        // Sets the send timeout
+        if(setsockopt(clientSocket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)))
+        {
+            perror("ERROR: Send timeout failed.");
+        }
+
+        // Sets the receive timeout
+        if(setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)))
+        {
+            perror("ERROR: Receive timeout failed.");
+        }
+
         // connecting the socket to the IP address and port
         // Params: which socket, cast for server address, its size
         if (connect(clientSocket, (struct sockaddr *)&servAddress, sizeof(servAddress)) == -1)
         {
-            std::cout << "Server response: no response...\n\n"; 
+            perror("ERROR: Server connection failed.");
+            std::cout << "Error: No response from server at " << serverAddress << "\n\n"; 
             close(clientSocket);
             continue;
         }
