@@ -22,6 +22,8 @@ int main()
 {
     const int portNum = 60001;
     char buffer[BUFFER_SIZE] = {0};
+    std::string loopPrintLinesH1 = "================================================================";
+    std::string loopPrintLinesH2 = "----------------------------------------------------------------";
 
     std::cout << "Client starting." << std::endl
               << std::endl;
@@ -30,20 +32,43 @@ int main()
     // connection loop with server
     while (true)
     {
+        std::cout << loopPrintLinesH1 << std::endl;
         std::string inputLine, serverAddress;
         std::cout << "Please enter the server address and file name or 'exit' to quit." << std::endl;
-        std::cout << "Example: \n" << "127.0.0.1 index.html\n\n";
+        std::cout << "Example:  " << "127.0.0.1 index.html\n\n";
+        std::cout << "To send a message instead, preceed your input with: msg:" << std::endl;
+        std::cout << "Example:  " << "msg: Hello World!\n\n";
+        std::cout << loopPrintLinesH2 << std::endl;
         std::getline(std::cin, inputLine);
 
         if(inputLine == "exit") {
             break;
         }
 
-        std::istringstream iss(inputLine);  // Split the input
-        iss >> serverAddress;               // First word = server address
-        std::getline(iss, fileName);        // Rest = file name
-        fileName.erase(0,1);                // remove the space from the front of the file name
+        std::cout << "Client input: " << inputLine << "\n" << std::endl;
+        std::string firstWord = "";
+        std::string msgBody = "";
 
+        std::istringstream iss(inputLine);  // Split the input
+        iss >> firstWord;               // First word = server address
+
+        if(firstWord != "msg:")
+        {
+            serverAddress = firstWord;
+            std::getline(iss, fileName);        // Rest = file name
+            fileName.erase(0,1);                // remove the space from the front of the file name
+
+            // Validate that the input has both an IP entry and file entry
+            if(serverAddress.empty() || fileName.empty())
+            {
+                std::cout << "ERROR: Invalid entry. Expecting an IP address AND a file name." << std::endl;
+                continue;
+            }   
+        }else{
+            msgBody = inputLine.substr(4); // Extract message after "msg:"
+            std::replace(msgBody.begin(), msgBody.end(), ' ', '+'); // Convert spaces to +
+            std::cout << "msgBody: " << msgBody << std::endl;
+        }
 
         // Create the socket
         // Referenced: Dr. Mishra's tcpClient3.c file, as well as https://www.geeksforgeeks.org/socket-programming-in-cpp/
@@ -52,7 +77,7 @@ int main()
         // check if server socket was made correctly
         if (clientSocket == -1)
         {
-            perror("Client failed to create a socket.");
+            perror("Error: Client failed to create a socket.");
             continue;
         }
 
@@ -61,10 +86,16 @@ int main()
         servAddress.sin_family = AF_INET;      // Structure Fields' definition: Sets the address family of the address the client would connect to
         servAddress.sin_port = htons(portNum); // Passing the port number - converting in right network byte order
 
+        // If a client is sending a message, then the serverAddress will still be blank and this IP needs to be added.
+        if(serverAddress.empty() || serverAddress == "")
+        {
+            serverAddress = "127.0.0.1";
+        }
+
         // Convert the user-inputted IP address from string to binary
         if (inet_pton(AF_INET, serverAddress.c_str(), &servAddress.sin_addr) <= 0)
         {
-            std::cout << "Invalid address/Address not supported.\n\n";
+            std::cout << "ERROR: Invalid address/Address not supported.\n\n";
             close(clientSocket);
             continue; // Skip and allow the user to enter another request
         }
@@ -73,52 +104,56 @@ int main()
         // Params: which socket, cast for server address, its size
         if (connect(clientSocket, (struct sockaddr *)&servAddress, sizeof(servAddress)) == -1)
         {
-            std::cout << "Server did not respond...\n\n"; 
+            std::cout << "Server response: no response...\n\n"; 
             close(clientSocket);
             continue;
         }
 
         std::ostringstream reqStream;
 
-        reqStream << "GET /" << fileName << " HTTP/1.1\r\n"
-                  << "host: localhost\r\n"
-                  << "Connection: close\r\n"
-                  << "\r\n";
+        if(msgBody.empty() || msgBody == "")
+        {
+            reqStream << "GET /" << fileName << " HTTP/1.1\r\n"
+                    << "Host: localhost\r\n"
+                    << "Connection: close\r\n"
+                    << "\r\n";
+        }else{
+            reqStream << "POST / HTTP/1.1\r\n"
+                    << "Host: localhost\r\n"
+                    << "Content-Length: " << msgBody.length() << "\r\n"
+                    << "Content-Type: application/x-www-form-urlencoded\r\n\r\n"
+                    << "message=" << msgBody;
+        }
 
         std::string httpReq = reqStream.str();
 
-
         send(clientSocket, httpReq.c_str(), httpReq.size(), 0);
 
-        // std::string clientMsg = "message=Client+Started";
-        // std::string httpReq =
-        //     "POST / HTTP/1.1\r\n"
-        //     "host: localhost\r\n"
-        //     "Content-Type: application/x-www-form-urlencoded\r\n"
-        //     "Content-Length: " +
-        //     std::to_string(clientMsg.length()) + "\r\n\r\n" +
-        //     clientMsg;
-
-        // send(clientSocket, httpReq.c_str(), httpReq.size(), 0);
+        std::cout << "Client request: \n" << httpReq << std::endl;
 
         // Receive the HTTP response from server
         int bytesRecvd = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
 
-        if (bytesRecvd < 0)
+        if (bytesRecvd == 0)
         {
-            perror("Read from server failed");
+            std::cout << "Server response: connection closed." << std::endl;
+            break;
+        }else if (bytesRecvd < 0)
+        {
+            std::cout << "Server response: no response\nRead from server failed" << std::endl;
+            perror("Server response: no response\nRead from server failed");
             break;
         }
 
         buffer[bytesRecvd] = '\0';
 
-        std::cout << buffer << std::endl;
+        std::cout << "\nServer Response: \n" << buffer << std::endl;
 
         // close the server socket
         close(clientSocket);
     }
 
-    std::cout << "Shutting down client. \n";
+    std::cout << "Client socket closed. \n";
 
     return 0;
 }
