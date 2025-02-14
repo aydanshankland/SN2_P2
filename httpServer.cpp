@@ -25,11 +25,14 @@
 std::atomic<bool> serverClosed(false); // https://en.cppreference.com/w/cpp/atomic/atomic
 std::string readFile(const std::string &fileName);
 void exitServer();
+std::string generateRes(int code, const std::string fileContent, const std::string messageBody);
 
 int main()
 {
     const int portNum = 60001;
     char buffer[BUFFER_SIZE] = {0};
+    std::string loopPrintLinesH1 = "================================================================";
+    std::string loopPrintLinesH2 = "----------------------------------------------------------------";
 
     std::cout << "Server starting." << std::endl
               << std::endl;
@@ -74,36 +77,45 @@ int main()
         close(servSocket);
         exit(1);
     }
-
-    std::cout << "Server listening on port " << portNum << "..." << std::endl
-              << std::endl;
-    
+ 
     //Open thread
     std::thread t(exitServer);
 
     // accept client connections
     while (!serverClosed)
     {
+        std::cout << loopPrintLinesH1 << std::endl;
+        std::cout << "Server listening on port " << portNum << "..." << std::endl << std::endl;
+        std::cout << loopPrintLinesH2 << std::endl;
+
         int clientSocket = accept(servSocket, nullptr, nullptr); // server socket to interact with client, structure like before - if you know - else nullptr for local connection
 
         if(serverClosed)
         {
+            std::cout << "Server closed. Closing client socket now..." << std::endl;
             close(clientSocket);
             break;
         }
 
         if (clientSocket < 0)
         {
-            perror("Failed to accept client.");
+            perror("Error: Failed to accept client.");
             continue;
         }
 
         // Receive the HTTP request
         int bytesRecvd = recv(clientSocket, buffer, sizeof(buffer), 0);
 
-        if (bytesRecvd < 0)
+        if (bytesRecvd == 0)
         {
-            perror("Read failed");
+            std::cout << "Client disconnected.\n";
+            close(clientSocket);
+            continue;
+        }
+        else if (bytesRecvd < 0)
+        {
+            std::cout << "Client request: no request\nRead from client failed" << std::endl;
+            perror("Client request: no request\nRead from client failed");
             close(clientSocket);
             continue;
         }
@@ -115,8 +127,13 @@ int main()
         std::string method, path, line;
         httpReqStream >> method >> path;
 
-        std::cout << "Request Method: " << method << std::endl;
-        std::cout << "Request Path: " << path << std::endl << std::endl;
+        std::cout << "Client Request: " << std::endl;
+        std::cout << "\tmethod: " << method << std::endl;
+        std::cout << "\tpath: " << path << std::endl << std::endl;
+
+        int httpCodeOK = 200;
+        int httpCodeNoContent = 204;
+        int httpCodeNotFound = 404;
 
         // check method type
         if (method == "POST")
@@ -128,7 +145,7 @@ int main()
                 headers += line + "\n";
             }
 
-            // Read the request body (message payload)
+            // Read the request body (message payload) from the client
             std::string message;
             std::getline(httpReqStream, message);
 
@@ -136,29 +153,26 @@ int main()
             std::replace(message.begin(), message.end(), '+', ' ');
             // remvove "message="
             message.erase(0, 8);
-            std::cout << "Message from client: " << message << std::endl;
+            std::cout << "Client Request Body: " << message << std::endl << std::endl;
 
             if(message == "stop")
             {
                 serverClosed = true;
                 std::cout << "Received 'stop' command from client. Server shutting down." << std::endl;
+                break;
             }
 
             //redirect them back to the main screen
             path = "index.html";
-            std::string fileContent = readFile(path);
-            std::ostringstream resStream;
-                resStream << "HTTP/1.1 200 OK\r\n"
-                          << "Content-Type: text/html\r\n"
-                          << "Content-Length: " << fileContent.size() << "\r\n\r\n"
-                          << fileContent;
-                std::string httpRes = resStream.str();
-                send(clientSocket, httpRes.c_str(), httpRes.size(), 0);
-                std::cout << "Server response: " << httpRes << std::endl;
+            //std::string fileContent = readFile(path);
+            std::string serverRes = generateRes(httpCodeNoContent, "", message); // Generates the initial response without the file content.
+
+            send(clientSocket, serverRes.c_str(), serverRes.size(), 0);
+            std::cout << "Server response: " << std::endl;
+            std::cout << serverRes << std::endl;
         }
         else if (!path.empty() && path != "")
         {
-
             // remove "/" from file path
             if (path[0] == '/')
             {
@@ -175,26 +189,26 @@ int main()
 
             if (!fileContent.empty())
             {
-                std::ostringstream resStream;
-                resStream << "HTTP/1.1 200 OK\r\n"
-                          << "Content-Type: text/html\r\n"
-                          << "Content-Length: " << fileContent.size() << "\r\n\r\n"
-                          << fileContent;
-                std::string httpRes = resStream.str();
+                std::string serverRes = generateRes(httpCodeOK, fileContent, ""); // Generates the initial response without the file content.
+                std::string httpRes = serverRes + fileContent; // The server's response needs the file content added to it at this point. 
+    
                 send(clientSocket, httpRes.c_str(), httpRes.size(), 0);
-               // std::cout << "Server response: " << httpRes << std::endl;
+                std::cout << "Server response: " << std::endl;
+                std::cout << serverRes << std::endl;
             }
             else // file path choosen is not valid, send "404 not found"
             {
-                const std::string notFoundHttpRes = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\nContent-Length: 51\r\n\r\n<html>404 Not Found</html>";
-                send(clientSocket, notFoundHttpRes.c_str(), notFoundHttpRes.size(), 0);
-                std::cout << "Server response: " << notFoundHttpRes << std::endl;
+                std::string serverRes = generateRes(httpCodeNotFound, "", "");
+                send(clientSocket, serverRes.c_str(), serverRes.size(), 0);
+                std::cout << "Server response: \n" << serverRes << std::endl;
             }
         }
 
+        std::cout << "Server closed client socket: " << clientSocket << std::endl << std::endl;
+
         // Close the client socket
         close(clientSocket);
-        std::cout << "Client socket closed on server side." << std::endl << std::endl;
+        std::cout << loopPrintLinesH2 << std::endl;
     }
     
     // close the server socket
@@ -255,4 +269,28 @@ void exitServer()
             }
         }
     }
+}
+
+std::string generateRes(int code, const std::string fileContent, const std::string messageBody)
+{
+    if(code == 200)
+    {
+        std::string resHeader = "HTTP/1.1 200 OK\r\n";
+        std::string resContentType = "Content-Type: text/html\r\n";
+        std::string strFileSize = std::to_string(fileContent.size());
+        std::string resContentLength = "Content-Length: " + strFileSize + "\r\n\r\n";
+
+        return resHeader + resContentType + resContentLength;
+    }else if(code == 204)
+    {
+        std::string resHeader = "HTTP/1.1 206 No Content\r\n";
+        std::string resContentType = "Content-Type: text/html\r\n";
+        std::string strMsgSize = std::to_string(messageBody.size());
+        std::string resContentLength = "Content-Length: " + strMsgSize + "\r\n\r\n";
+
+        return resHeader + resContentType + resContentLength;
+    }else
+    {
+        return "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\nContent-Length: 51\r\n\r\n<html>404 Not Found</html>";
+    } 
 }
